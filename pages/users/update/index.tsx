@@ -23,7 +23,7 @@ function UpdatePage() {
     const [usersValid, setUsersValid] = useState(false);
 
     const PROCESSING = 'processing';
-    const USERS_MIN_LENGTH = 5;
+    const USERS_MIN_LENGTH = 6;
 
     const attrsIgnored = [
         "LDAP_ENTRY_DN",
@@ -40,7 +40,7 @@ function UpdatePage() {
     const handleChangeUsers = (ev) => {
         const us = ev.target.value.replace('\n', ',').replace('\r', ',').replace(' ', '').replace(',,', ',').split(',');
         setUsers(us)
-        setUsersValid(us.join().length > USERS_MIN_LENGTH);
+        setUsersValid(us.findIndex(u => u.length >= USERS_MIN_LENGTH) >= 0);
     };
 
     const handleSelect = (ev) => {
@@ -57,9 +57,6 @@ function UpdatePage() {
         } catch (e) {
             setJsonValid(false)
         }
-        logger.info(!!!keyValue || !jsonValid)
-        logger.info(!!!keyValue)
-        logger.info(!!!jsonValid)
     }
 
     const clearUserNames = (e) => {
@@ -167,7 +164,7 @@ function UpdatePage() {
         }
 
         setLastUpdate(new Map());
-        users.filter(u => u.length > USERS_MIN_LENGTH).forEach(async (u) => {
+        users.filter(u => u.length >= USERS_MIN_LENGTH).forEach(async (u) => {
             await notifyUserStatus(u, PROCESSING);
             const processUser = async (u) => {
                 const userRead = await readUser(u);
