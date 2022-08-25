@@ -1,31 +1,36 @@
 import { useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { Alert, Badge, Col, Form, ListGroup, ListGroupItem, Row } from "react-bootstrap";
+import { Alert, Badge, Button, Col, Form, ListGroup, ListGroupItem, Row } from "react-bootstrap";
 import Layout from "../../components/layout/layout";
 import Loading from "../../components/loading/loading";
+import logger from '../../server/logger/logger';
 
-const UsersPage = () => {
+const ListPage = () => {
 
     const [userName, setUserName] = useState('');
-    const [users, setUsers] = useState(null);
+    const [users, setUsers] = useState([]);
     const { status, data: session } = useSession();
     const [error, setError] = useState(null);
     const [isFetching, setFetching] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
 
     const handleChange = (ev) => {
         setUserName(ev.target.value);
         setError(null);
     };
 
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setUsers([]);
+        setSubmitted(true);
+        setFetching(true)
+        doFetch()
+    }
+
     useEffect(() => {
-        if (userName) {
-            setFetching(true)
-            doFetch()
-        } else {
-            setUsers(null);
-        }
-    }, [status, session, userName]);
+
+    }, [status, session]);
 
     const doFetch = () => {
         fetch(
@@ -52,7 +57,8 @@ const UsersPage = () => {
     }
 
     const showList = () => {
-        if (!userName) return <></>
+
+        if (!submitted) return <></>
 
         if (isFetching) return <>
             <Loading />
@@ -62,7 +68,7 @@ const UsersPage = () => {
             <Alert variant='danger'>Error: {error.message}</Alert>
         </>
 
-        if (!users || users.length === 0) return <>
+        if (submitted && users.length === 0) return <>
             <ListGroup>
                 <ListGroupItem>
                     No results
@@ -95,22 +101,19 @@ const UsersPage = () => {
                     <title>Users Manager - List Users</title>
                 </Head>
                 <h4>List Users</h4>
-                <Form >
+                <Form onSubmit={handleSubmit}>
                     <Form.Group as={Row} className="mb-3" controlId="formUser" >
                         <Form.Label column sm={2}><span className="text-nowrap">User name</span></Form.Label>
-                        <Col sm={10}>
-                            {status === 'authenticated'
-                                ?
-                                <>
-                                    <Form.Control autoFocus type="text" placeholder="User name" value={userName} onChange={handleChange} />
-                                </>
-                                :
-                                <Loading />
-                            }
-                        </Col>
-                        {/* <Form.Text className="text-muted">
-
-                        </Form.Text> */}
+                        {status === 'authenticated' ? <>
+                            <Col sm={4}>
+                                <Form.Control autoFocus type="text" placeholder="User name" value={userName}
+                                    onChange={handleChange} required minLength={4} />
+                            </Col>
+                            <Col sm={2}>
+                                <Button type='submit'>OK</Button>
+                            </Col>
+                        </> : <Loading />
+                        }
                     </Form.Group>
                 </Form>
                 <div>
@@ -122,4 +125,4 @@ const UsersPage = () => {
 
 }
 
-export default UsersPage
+export default ListPage

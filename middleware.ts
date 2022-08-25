@@ -78,7 +78,7 @@ function deny(method, pathname, url) {
 }
 
 export async function verifyAccessToken(bearerToken: string) {
-    logger.info('verifying access token...');
+    info('verifying access token...');
     const res = await fetch(`${kcCfg.url}/realms/${kcCfg.realm}/protocol/openid-connect/userinfo`, {
         headers: {
             Authorization: bearerToken
@@ -87,7 +87,7 @@ export async function verifyAccessToken(bearerToken: string) {
     if (res.status !== 200) {
         throw await res.json()
     } else {
-        logger.info('acessToken ok');
+        info('acessToken ok');
         return await res.json()
     }
 }

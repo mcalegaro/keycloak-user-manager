@@ -2,13 +2,13 @@ import { useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { Button, Col, Form, ListGroup, ListGroupItem, Row } from 'react-bootstrap';
-import { useForm } from 'react-hook-form';
 import Layout from "../../../components/layout/layout";
 import Loading from '../../../components/loading/loading';
 import MsgToast from '../../../components/toast';
 import logger from '../../../server/logger/logger';
 
-function updateUsers() {
+
+function UpdatePage() {
 
     const [users, setUsers] = useState([]);
     const [keyValue, setKeyValue] = useState('');
@@ -20,6 +20,10 @@ function updateUsers() {
     const [showError, setShowError] = useState(false);
     const [validated, setValidated] = useState(false);
     const [jsonValid, setJsonValid] = useState(false);
+    const [usersValid, setUsersValid] = useState(false);
+
+    const PROCESSING = 'processing';
+    const USERS_MIN_LENGTH = 5;
 
     const attrsIgnored = [
         "LDAP_ENTRY_DN",
@@ -31,11 +35,12 @@ function updateUsers() {
         if (status === 'authenticated' && adminRole === undefined) {
             setAdminRole(session['token']['hasAdminRole']);
         }
-    }, [status, users, keyValue, lastUpdate, refreshUpdate, errorMessage, validated, jsonValid])
+    }, [status, users, keyValue, lastUpdate, refreshUpdate, errorMessage, validated, jsonValid, usersValid])
 
     const handleChangeUsers = (ev) => {
-        const us = ev.target.value.replace('\n', ',').replace(' ', '').replace(',,', ',').split(',');
+        const us = ev.target.value.replace('\n', ',').replace('\r', ',').replace(' ', '').replace(',,', ',').split(',');
         setUsers(us)
+        setUsersValid(us.join().length > USERS_MIN_LENGTH);
     };
 
     const handleSelect = (ev) => {
@@ -126,29 +131,32 @@ function updateUsers() {
         })
             .then((data) => {
                 return data;
-            }).catch((err) => {
-                logger.error(err);
-                return undefined;
+            }).catch((e) => {
+                logger.error(e.message);
+                return e.message;
             });
         return resp;
     }
 
     //////////////////////////////////////////////////////
-    const PROCESSING = 'processing';
-
     const update = async (event) => {
-        setShowError(false);
         event.preventDefault();
+        // setShowError(false);
         // event.stopPropagation();
 
-        const form = event.currentTarget;
-        if (form.checkValidity() === false) {
-            setValidated(true);
-            document.querySelector('.form-control:invalid')['focus']();
-            return false;
-        }
+        // const form = event.currentTarget;
+        // if (form.checkValidity() === false) {
+        //     setValidated(true);
+        //     document.querySelector('.form-control:invalid')['focus']();
+        //     return false;
+        // }
 
-        setShowError(false);
+        if (!usersValid) {
+            document.getElementById('users').focus()
+        }
+        // logger
+        // document.getElementById('users').textContent
+
         try {
             JSON.parse(keyValue)
         } catch (e) {
@@ -159,14 +167,14 @@ function updateUsers() {
         }
 
         setLastUpdate(new Map());
-        users.forEach(async (u) => {
+        users.filter(u => u.length > USERS_MIN_LENGTH).forEach(async (u) => {
             await notifyUserStatus(u, PROCESSING);
             const processUser = async (u) => {
                 const userRead = await readUser(u);
                 if (userRead !== undefined) {
                     const userUpdate = await setAttributes(userRead)
                     const updated = await updateUser(userUpdate);
-                    await notifyUserStatus(u, updated.msg);
+                    await notifyUserStatus(u, updated);
                 } else {
                     await notifyUserStatus(u, 'not found.');
                 }
@@ -185,24 +193,34 @@ function updateUsers() {
             {status === 'loading' ? <Loading />
                 : //adminRole ?
                 <>
-
                     <Form
-                        noValidate validated={validated}
+                        // noValidate validated={validated}
                         onSubmit={update}
                     >
                         <Form.Group className="mb-3" controlId="formUpdateUser">
                             <Form.Label>User names</Form.Label>
                             <Form.Group as={Row} className="mb-3">
                                 <Col sm="11">
-                                    <Form.Control autoFocus as="textarea"
+                                    <Form.Control autoFocus as="textarea" id="users"
                                         placeholder="User names"
                                         value={users}
                                         onChange={handleChangeUsers}
-                                        required minLength={5} />
-                                    {/* <Form.Text className="text-muted"> </Form.Text> */}
-                                    {/* <Form.Control.Feedback type="invalid">
-                                        Please provide a valid city.
-                                    </Form.Control.Feedback> */}
+                                        required minLength={USERS_MIN_LENGTH} />
+                                    {!!users && !usersValid ?
+                                        <div style={{
+                                            // display: 'block !important',
+                                            width: '100%',
+                                            marginTop: '0.25rem',
+                                            fontSize: '.875em',
+                                            color: '#dc3545'
+                                        }} //className='invalid-feedback'
+                                        >
+                                            Please provide a valid user (at least {USERS_MIN_LENGTH} chars).
+                                        </div>
+                                        : <Form.Control.Feedback type="invalid">
+                                            Please provide a valid json.
+                                        </Form.Control.Feedback>
+                                    }
                                 </Col>
                                 <Col sm="1">
                                     <Button onClick={clearUserNames}>Clear</Button>
@@ -279,4 +297,4 @@ function updateUsers() {
 
 }
 
-export default updateUsers
+export default UpdatePage

@@ -28,7 +28,7 @@ const Layout = (props) => {
 
   return <>
     <LayoutHeader />
-    <Container>
+    <Container fluid="sm">
       {status === 'loading'
         ?
         <Loading />

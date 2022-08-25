@@ -29,12 +29,12 @@ async function updateUser(req, res, accessToken) {
             body: body
         })
         .then((res) => {
-            return { msg: 'success' };
+            return 'success';
         })
         .then((data) => {
             res.status(200).json(data);
-        }).catch((err) => {
-            logger.error(err);
-            res.status(500).json(err)
+        }).catch((e) => {
+            logger.error(e);
+            res.status(500).json(e.message)
         });
 }

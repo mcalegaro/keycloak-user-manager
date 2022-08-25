@@ -47,7 +47,7 @@ export default function LayoutHeader(props) {
             <meta name="og:title" content={siteTitle} />
             <meta name="twitter:card" content="summary_large_image" />
         </Head>
-        <Navbar bg="light" expand="lg" onSelect={
+        <Navbar bg="light" expand="sm" onSelect={
             async (selectedKey) => {
                 switch (selectedKey) {
                     case SELECT_LIST.key:
