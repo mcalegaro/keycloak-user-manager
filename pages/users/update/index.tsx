@@ -72,13 +72,14 @@ function UpdatePage() {
     const readUser = async (u) => {
         const resp: Array<any> = await fetch('/api/users?username=' + u, {
             method: 'GET', headers: {
-                Authorization: "Bearer " + session.accessToken
+                Authorization: "Bearer " + session.token['accessToken']
             }
-        }).then((res) => res.json())
-            .then((data) => {
+        })
+            .then(async (res) => {
+                if (res.status === 200) return res.json()
+                else throw await res.json().then((data) => { return data })
+            }).then((data) => {
                 return data
-            }).catch((err) => {
-                return undefined;
             });
         if (resp === undefined || resp.length == 0) {
             return undefined;
@@ -120,17 +121,15 @@ function UpdatePage() {
     const updateUser = async (u) => {
         const resp: any = await fetch('/api/users/' + u.id, {
             method: 'PUT', headers: {
-                Authorization: "Bearer " + session.accessToken
+                Authorization: "Bearer " + session.token['accessToken']
             },
             body: JSON.stringify(u)
-        }).then((res) => {
-            return res.json();
+        }).then(async (res) => {
+            if (res.status === 200) return res.json()
+            else throw await res.json().then((data) => { return data })
         })
             .then((data) => {
                 return data;
-            }).catch((e) => {
-                logger.error(e.message);
-                return e.message;
             });
         return resp;
     }
@@ -150,16 +149,13 @@ function UpdatePage() {
 
         if (!usersValid) {
             document.getElementById('users').focus()
+            return false;
         }
-        // logger
-        // document.getElementById('users').textContent
 
         try {
             JSON.parse(keyValue)
         } catch (e) {
-            // setErrorMessage(e.message)
             document.getElementById('keyValInput').focus()
-            // setShowError(true);
             return false;
         }
 
@@ -167,13 +163,17 @@ function UpdatePage() {
         users.filter(u => u.length >= USERS_MIN_LENGTH).forEach(async (u) => {
             await notifyUserStatus(u, PROCESSING);
             const processUser = async (u) => {
-                const userRead = await readUser(u);
-                if (userRead !== undefined) {
-                    const userUpdate = await setAttributes(userRead)
-                    const updated = await updateUser(userUpdate);
-                    await notifyUserStatus(u, updated);
-                } else {
-                    await notifyUserStatus(u, 'not found.');
+                try {
+                    const userRead = await readUser(u);
+                    if (userRead !== undefined) {
+                        const userUpdate = await setAttributes(userRead)
+                        const updated = await updateUser(userUpdate);
+                        await notifyUserStatus(u, updated);
+                    } else {
+                        await notifyUserStatus(u, 'not found.');
+                    }
+                } catch (e) {
+                    await (notifyUserStatus(u, e.message))
                 }
             }
             processUser(u);

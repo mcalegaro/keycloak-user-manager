@@ -1,7 +1,6 @@
-// import nextConnect from 'next-connect';
 import nextConnect from 'next-connect';
-import apiWithAuth from '../../components/apiWithAuth';
-import { kcCfg } from '../../components/keycloak.config';
+import apiWithAuth, { authorize } from '../../components/apiWithAuth';
+import { kcCfg, kcRoles } from '../../components/keycloak.config';
 import logger from '../../server/logger/logger';
 import TokenService from '../../server/token/tokenService';
 
@@ -11,6 +10,11 @@ import TokenService from '../../server/token/tokenService';
 // export default handler
 
 const usersApi = async (req, res) => {
+
+    await authorize(req, res, null, kcRoles.userRole);
+    if (res.statusCode !== 200) {
+        return;
+    }
 
     const { query, method } = req;
 
@@ -26,6 +30,8 @@ const usersApi = async (req, res) => {
             break;
     }
 }
+
+export default usersApi
 
 async function listUsers(req, res, accessToken) {
 
@@ -46,5 +52,3 @@ async function listUsers(req, res, accessToken) {
 
 }
 
-
-export default usersApi

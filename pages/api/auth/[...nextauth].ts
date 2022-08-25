@@ -4,7 +4,7 @@ import { kcCfg, kcRoles } from '../../../components/keycloak.config'
 import logger from "../../../server/logger/logger"
 import jwt from 'jsonwebtoken'
 import { signOut } from "next-auth/react"
-import { verifyAccessToken } from "../../../middleware"
+import { verifyAccessToken } from "../../../oldmiddleware"
 
 export const authOptions: NextAuthOptions = {
     // Configure one or more authentication providers

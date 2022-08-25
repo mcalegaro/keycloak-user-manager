@@ -33,15 +33,10 @@ const ListPage = () => {
     }, [status, session]);
 
     const doFetch = () => {
-        fetch(
-            '/api/users?username=' + userName,
-            {
-                method: 'GET',
-                headers: {
-                    Authorization: "Bearer " + session.token['accessToken']
-                }
-            }
-        )
+        fetch('/api/users?username=' + userName, {
+            method: 'GET',
+            headers: { Authorization: "Bearer " + session.token['accessToken'] }
+        })
             .then(async (res) => {
                 if (res.status === 200) return res.json()
                 else throw await res.json().then((data) => { return data })
