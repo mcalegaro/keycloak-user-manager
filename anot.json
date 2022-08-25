@@ -1,0 +1,49 @@
+{
+   "exp": 1661100327,
+   "iat": 1661100027,
+   "auth_time": 1661100027,
+   "jti": "4bbaf672-9985-470b-bea4-c56e40692bb6",
+   "iss": "http://localhost:8180/auth/realms/demo",
+   "aud": [
+      "account",
+      "client-users-manager-app"
+   ],
+   "sub": "bc1dc080-0027-49f0-b777-6670a2e55331",
+   "typ": "Bearer",
+   "azp": "next-auth",
+   "session_state": "a772e596-1a7e-469e-955b-781acf0ede58",
+   "acr": "1",
+   "allowed-origins": [
+      "*"
+   ],
+   "realm_access": {
+      "roles": [
+         "offline_access",
+         "default-roles-demo",
+         "uma_authorization"
+      ]
+   },
+   "resource_access": {
+      "next-auth": {
+         "roles": [
+            "user"
+         ]
+      },
+      "account": {
+         "roles": [
+            "manage-account",
+            "manage-account-links",
+            "view-profile"
+         ]
+      },
+      "client-users-manager-app": {
+         "roles": [
+            "user"
+         ]
+      }
+   },
+   "scope": "openid profile email",
+   "sid": "a772e596-1a7e-469e-955b-781acf0ede58",
+   "email_verified": false,
+   "preferred_username": "user1"
+}

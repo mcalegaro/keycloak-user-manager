@@ -1,0 +1,5 @@
+import { NextRequest } from "next/server";
+
+export default function(req: NextRequest,res){
+    res.status(401).json({msg:'Access denied.'})
+}
