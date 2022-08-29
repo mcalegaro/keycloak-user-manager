@@ -1,0 +1,13 @@
+# serverless.yml
+
+UserManagerApplication:
+  component: "@sls-next/serverless-component@3.7.0"
+  inputs:
+    name:
+      defaultLambda: user-manager-app-Default
+      apiLambda: user-manager-app-Api
+      imageLambda: user-manager-app-Image
+    removeOldLambdaVersions: true
+    bucketName: user-manager-app
+    cloudfront:
+      distributionId: E2G9Z802JCMBDR
