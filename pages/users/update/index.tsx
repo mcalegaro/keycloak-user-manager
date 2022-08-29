@@ -1,11 +1,11 @@
 import { useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { Button, Col, Form, ListGroup, ListGroupItem, Row } from 'react-bootstrap';
+import { Button, Col, Container, Form, ListGroup, ListGroupItem, Row, Stack } from 'react-bootstrap';
 import Layout from "../../../components/layout/layout";
 import Loading from '../../../components/loading/loading';
 import MsgToast from '../../../components/toast';
-import logger from '../../../server/logger/logger';
+// import logger from '../../../server/logger/logger';
 
 
 function UpdatePage() {
@@ -24,6 +24,13 @@ function UpdatePage() {
 
     const PROCESSING = 'processing';
     const USERS_MIN_LENGTH = 6;
+    let UPDATE_SUGGESTIONS = undefined;
+    try {
+        UPDATE_SUGGESTIONS =
+            JSON.parse(process.env.NEXT_PUBLIC_UPDATE_SUGGESTIONS);
+    } catch (error) {
+        console.warn('Failed on read UPDATE_SUGGESTIONS.')
+    }
 
     const attrsIgnored = [
         "LDAP_ENTRY_DN",
@@ -38,15 +45,20 @@ function UpdatePage() {
     }, [status, users, keyValue, lastUpdate, refreshUpdate, errorMessage, validated, jsonValid, usersValid])
 
     const handleChangeUsers = (ev) => {
-        const us = ev.target.value.replace('\n', ',').replace('\r', ',').replace(' ', '').replace(',,', ',').split(',');
+        const us = ev.target.value.replaceAll('\n', ',').replaceAll(' ', '').replaceAll(',,', ',').split(',');
         setUsers(us)
         setUsersValid(us.findIndex(u => u.length >= USERS_MIN_LENGTH) >= 0);
     };
 
     const handleSelect = (ev) => {
-        // document.getElementById('keyValInput').textContent = ev.target.value;
-        // setKeyValue(ev.target.value);
-        handleChangeKeyValue(ev);
+        try {
+            let values = JSON.parse(keyValue);
+            const addVal = JSON.parse(ev.target.value)
+            values[`${Object.keys(addVal)[0]}`] = Object.values(addVal)[0]
+            setKeyValue(JSON.stringify(values))
+        } catch (e) {
+            handleChangeKeyValue(ev);
+        }
     }
 
     const handleChangeKeyValue = (ev) => {
@@ -70,22 +82,22 @@ function UpdatePage() {
     // //////////////////////////////////////////////
 
     const readUser = async (u) => {
-        const resp: Array<any> = await fetch('/api/users?username=' + u, {
+        return await fetch('/api/users?username=' + u, {
             method: 'GET', headers: {
                 Authorization: "Bearer " + session.token['accessToken']
             }
-        })
-            .then(async (res) => {
-                if (res.status === 200) return res.json()
-                else throw await res.json().then((data) => { return data })
-            }).then((data) => {
-                return data
-            });
-        if (resp === undefined || resp.length == 0) {
-            return undefined;
-        } else {
-            return resp[0];
-        }
+        }).then(async (res) => {
+            if (res.status === 200) {
+                return res.json();
+            } else {
+                throw await res.json().then((data) => {
+                    console.info(data)
+                    return { message: data }
+                })
+            }
+        }).then((data) => {
+            return data
+        });
     }
 
     const setAttributes = async (user) => {
@@ -137,6 +149,7 @@ function UpdatePage() {
     //////////////////////////////////////////////////////
     const update = async (event) => {
         event.preventDefault();
+
         // setShowError(false);
         // event.stopPropagation();
 
@@ -165,15 +178,15 @@ function UpdatePage() {
             const processUser = async (u) => {
                 try {
                     const userRead = await readUser(u);
-                    if (userRead !== undefined) {
-                        const userUpdate = await setAttributes(userRead)
+                    if (userRead.length > 0) {
+                        const userUpdate = await setAttributes(userRead[0])
                         const updated = await updateUser(userUpdate);
-                        await notifyUserStatus(u, updated);
+                        await notifyUserStatus(u, JSON.stringify(updated));
                     } else {
                         await notifyUserStatus(u, 'not found.');
                     }
                 } catch (e) {
-                    await (notifyUserStatus(u, e.message))
+                    await (notifyUserStatus(u, JSON.stringify(e.message)))
                 }
             }
             processUser(u);
@@ -194,73 +207,93 @@ function UpdatePage() {
                         // noValidate validated={validated}
                         onSubmit={update}
                     >
-                        <Form.Group className="mb-3" controlId="formUpdateUser">
-                            <Form.Label>User names</Form.Label>
-                            <Form.Group as={Row} className="mb-3">
-                                <Col sm="11">
-                                    <Form.Control autoFocus as="textarea" id="users"
-                                        placeholder="User names"
-                                        value={users}
-                                        onChange={handleChangeUsers}
-                                        required minLength={USERS_MIN_LENGTH} />
-                                    {!!users && !usersValid ?
-                                        <div style={{
-                                            // display: 'block !important',
-                                            width: '100%',
-                                            marginTop: '0.25rem',
-                                            fontSize: '.875em',
-                                            color: '#dc3545'
-                                        }} //className='invalid-feedback'
-                                        >
-                                            Please provide a valid user (at least {USERS_MIN_LENGTH} chars).
-                                        </div>
-                                        : <Form.Control.Feedback type="invalid">
-                                            Please provide a valid json.
-                                        </Form.Control.Feedback>
+                        <Form.Group className="mb-3" >
+                            <Form.Group as={Row} >
+                                <Col >
+                                    <Form.Label>User names</Form.Label>
+                                </Col>
+                                <Col style={{ textAlign: 'right' }}>
+                                    <Button onClick={clearUserNames} variant="secondary" size="sm">Clear</Button>
+                                </Col>
+                            </Form.Group>
+                            <Form.Control autoFocus as="textarea" id="users"
+                                placeholder="User names"
+                                value={users}
+                                onChange={handleChangeUsers}
+                                required minLength={USERS_MIN_LENGTH}
+                                rows={4}
+                            />
+                            {!!users && !usersValid ?
+                                <div style={{
+                                    // display: 'block !important',
+                                    width: '100%',
+                                    marginTop: '0.25rem',
+                                    fontSize: '.875em',
+                                    color: '#dc3545'
+                                }} //className='invalid-feedback'
+                                >
+                                    Please provide a valid user (at least {USERS_MIN_LENGTH} chars).
+                                </div>
+                                : <Form.Control.Feedback type="invalid">
+                                    Please provide a valid json.
+                                </Form.Control.Feedback>
+                            }
+                        </Form.Group>
+                        <Form.Group className="mb-3" >
+                            <Form.Group as={Row}>
+                                <Col >
+                                    <Form.Label>Add Attributes</Form.Label>
+                                </Col>
+                                <Col style={{ textAlign: 'right' }}>
+                                    <Button onClick={clearAttributes} variant="secondary" size="sm">Clear</Button>
+                                </Col>
+                            </Form.Group>
+                            <Form.Group className="mb-3">
+                                {/* <Col sm="11"> */}
+                                <Form.Select onChange={handleSelect} >
+                                    <option value=""></option>
+                                    {!!UPDATE_SUGGESTIONS
+                                        ? UPDATE_SUGGESTIONS.map(s => {
+                                            return <option key={Object.keys(s)[0]} value={JSON.stringify(s)}>{Object.keys(s)[0]}</option>
+                                        })
+                                        : <option value='{"usuario-espelho":["usuario-espelho-admin","usuario-espelho-padrao"]}'>usuario-espelho</option>
                                     }
-                                </Col>
-                                <Col sm="1">
-                                    <Button onClick={clearUserNames}>Clear</Button>
-                                </Col>
+                                </Form.Select>
+                                {/* </Col> */}
+                                {/* <Col sm="11"> */}
+                                <Form.Control as="textarea" id="keyValInput"
+                                    placeholder='Add Attributes'
+                                    onChange={handleChangeKeyValue} value={keyValue}
+                                    required rows={5}
+                                />
+                                {!!keyValue && !jsonValid ?
+                                    <div style={{
+                                        // display: 'block !important',
+                                        width: '100%',
+                                        marginTop: '0.25rem',
+                                        fontSize: '.875em',
+                                        color: '#dc3545'
+                                    }} //className='invalid-feedback'
+                                    >
+                                        Please provide a valid json.
+                                    </div>
+                                    : <Form.Control.Feedback type="invalid">
+                                        Please provide a valid json.
+                                    </Form.Control.Feedback>
+                                }
+                                {/* </Col> */}
                             </Form.Group>
                         </Form.Group>
                         <Form.Group className="mb-3">
-                            <Form.Label>Add Attributes</Form.Label>
-                            <Form.Group as={Row} className="mb-3">
-                                <Col sm="11">
-                                    <Form.Select onChange={handleSelect} >
-                                        <option value=""></option>
-                                        <option value='{"usuario-espelho":["usuario-espelho-admin","usuario-espelho-padrao"]}'>usuario-espelho</option>
-                                    </Form.Select>
-                                    <Form.Control as="textarea" id="keyValInput"
-                                        placeholder='Add Attributes'
-                                        onChange={handleChangeKeyValue} value={keyValue}
-                                        required
-                                    />
-                                    {!!keyValue && !jsonValid ?
-                                        <div style={{
-                                            // display: 'block !important',
-                                            width: '100%',
-                                            marginTop: '0.25rem',
-                                            fontSize: '.875em',
-                                            color: '#dc3545'
-                                        }} //className='invalid-feedback'
-                                        >
-                                            Please provide a valid json.
-                                        </div>
-                                        : <Form.Control.Feedback type="invalid">
-                                            Please provide a valid json.
-                                        </Form.Control.Feedback>
-                                    }
-                                </Col>
-                                <Col sm="1">
-                                    <Button onClick={clearAttributes}>Clear</Button>
-                                </Col>
-                            </Form.Group>
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                            {/* <Button onClick={update}>Update</Button> */}
-                            <Button type='submit'>Update</Button>
+                            <div className="d-grid gap-2">
+                                <Button type='submit' >Update</Button>
+                                {/* <Button variant="primary" size="lg">
+                                    Block level button
+                                </Button>
+                                <Button variant="secondary" size="lg">
+                                    Block level button
+                                </Button> */}
+                            </div>
                         </Form.Group>
                         {showError ?
                             <Form.Group className="mb-3">
@@ -278,8 +311,8 @@ function UpdatePage() {
                                         No results
                                     </ListGroupItem>
                                 </>
-                                    : Array.from(lastUpdate.keys()).map(k => {
-                                        return <ListGroupItem key={k}>
+                                    : Array.from(lastUpdate.keys()).map((k, i) => {
+                                        return <ListGroupItem key={k} variant={i % 2 == 1 ? 'dark' : ''}>
                                             {k} - {lastUpdate.get(k) === PROCESSING ? <Loading /> : lastUpdate.get(k)}
                                         </ListGroupItem>
                                     })

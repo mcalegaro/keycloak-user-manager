@@ -16,6 +16,7 @@ export default function LayoutHeader(props) {
 
     const { data: session, status } = useSession()
     const [adminRole, setAdminRole] = useState()
+    const [loading, setLoading] = useState(false)
 
     const home = () => {
         Router.push('/')
@@ -24,10 +25,12 @@ export default function LayoutHeader(props) {
     useEffect(() => {
         if (status === 'authenticated') {
             setAdminRole(session['token']['hasAdminRole'])
+            setLoading(false)
         }
-    }, [session, status])
+    }, [session, status, loading])
 
     const prepareLogout = async () => {
+        setLoading(true)
         await logout();
     }
 
@@ -47,52 +50,54 @@ export default function LayoutHeader(props) {
             <meta name="og:title" content={siteTitle} />
             <meta name="twitter:card" content="summary_large_image" />
         </Head>
-        <Navbar bg="light" expand="sm" onSelect={
-            async (selectedKey) => {
-                switch (selectedKey) {
-                    case SELECT_LIST.key:
-                        Router.push('/users')
-                        break;
-                    case SELECT_UPDATE.key:
-                        Router.push('/users/update')
-                        break;
-                    case SELECT_LOGOUT.key:
-                        await prepareLogout()
-                        break;
-                    default:
-                        console.log(`selected ${selectedKey}`)
-                        break;
+        <Navbar
+            bg="light"
+            expand="sm" onSelect={
+                async (selectedKey) => {
+                    switch (selectedKey) {
+                        case SELECT_LIST.key:
+                            Router.push('/users')
+                            break;
+                        case SELECT_UPDATE.key:
+                            Router.push('/users/update')
+                            break;
+                        case SELECT_LOGOUT.key:
+                            await prepareLogout()
+                            break;
+                        default:
+                            console.log(`selected ${selectedKey}`)
+                            break;
+                    }
                 }
-            }
-        }>
+            }>
             <Container>
                 <Navbar.Brand href='#' onClick={home}>Users Manager</Navbar.Brand>
-                {status === 'loading'
-                    ? <> <Loading /> </>
-                    : <>
-                        {status === 'authenticated'
-                            ?
-                            <>
-                                <Navbar.Toggle aria-controls="basic-navbar-nav" />
-                                <Navbar.Collapse id="basic-navbar-nav">
-                                    <Nav className="me-auto">
-                                        <>
-                                            <Nav.Link eventKey={SELECT_LIST.key}>
-                                                {SELECT_LIST.value}
-                                            </Nav.Link>
-                                            {adminRole ?
-                                                <Nav.Link eventKey={SELECT_UPDATE.key}>{SELECT_UPDATE.value}</Nav.Link>
-                                                : <></>
-                                            }
-                                            <Nav.Link href="#" eventKey={SELECT_LOGOUT.key}>{SELECT_LOGOUT.value}</Nav.Link>
-                                        </>
-                                    </Nav>
-                                </Navbar.Collapse>
-                            </>
-                            :
-                            <></>
-                        }
-                    </>
+                {loading ? <Loading />
+                    : status === 'unauthenticated' ? <>  </>
+                        : <>
+                            {status === 'authenticated'
+                                ?
+                                <>
+                                    <Navbar.Toggle aria-controls="basic-navbar-nav" />
+                                    <Navbar.Collapse id="basic-navbar-nav">
+                                        <Nav className="me-auto">
+                                            <>
+                                                <Nav.Link eventKey={SELECT_LIST.key}>
+                                                    {SELECT_LIST.value}
+                                                </Nav.Link>
+                                                {adminRole ?
+                                                    <Nav.Link eventKey={SELECT_UPDATE.key}>{SELECT_UPDATE.value}</Nav.Link>
+                                                    : <></>
+                                                }
+                                                <Nav.Link href="#" eventKey={SELECT_LOGOUT.key}>{SELECT_LOGOUT.value}</Nav.Link>
+                                            </>
+                                        </Nav>
+                                    </Navbar.Collapse>
+                                </>
+                                :
+                                <></>
+                            }
+                        </>
                 }
             </Container>
         </Navbar>

@@ -1,11 +1,20 @@
+import { stat } from 'fs';
 import { signOut, useSession } from 'next-auth/react';
 import Head from 'next/head';
+import { useEffect, useState } from 'react';
 import { kcCfg } from '../components/keycloak.config';
 import Layout, { siteTitle } from '../components/layout/layout';
 import Loading from '../components/loading/loading';
 
 const Home = () => {
   const { data: session, status } = useSession()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (status !== 'loading') {
+      setLoading(false)
+    }
+  }, [loading, status])
 
   const logout = async (ev) => {
     const logoutPath = `${kcCfg.url}/realms/${kcCfg.realm}/protocol/openid-connect/logout?redirect_uri=${window.location.href}/login/reLogin`;
@@ -20,11 +29,12 @@ const Home = () => {
       </Head>
       <section >
         <div>
-          {status === 'authenticated' && session.user
-            ? <p>
-              <i>{session.user.name}</i> connected to {kcCfg.url}/realms/{kcCfg.realm}
-            </p>
-            : <Loading />}
+          {
+            loading ? <Loading /> : status === 'authenticated' ?
+              <p>
+                <i>{session.user.name}</i> connected to {kcCfg.url}/realms/{kcCfg.realm}
+              </p> : <></>
+          }
           {/* <p>
             Hello {status == 'authenticated'
               ? <>

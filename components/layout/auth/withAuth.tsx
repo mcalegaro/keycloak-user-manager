@@ -1,7 +1,7 @@
 import { NextPage } from "next";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import logger from "../../../server/logger/logger";
+// import logger from "../../../server/logger/logger";
 import Loading from "../../loading/loading";
 import { kcCfg, kcRoles } from "../../keycloak.config";
 import AccessDenied from "../../../pages/accessDenied/index";
@@ -20,10 +20,12 @@ const withAuth =
         const { status, data: session } = useSession();
         const [userRole, setUserRole] = useState();
         const [loading, setLoading] = useState(true);
+        const [loggingIn, setLoggingIn] = useState(false);
 
         useEffect(() => {
-            setLoading(false)
+            if (!loggingIn) setLoading(false)
             if (status === 'authenticated' && session) {
+                setLoggingIn(false)
                 if (session.expired) {
                     setLoading(true)
                     signOut()
@@ -33,29 +35,29 @@ const withAuth =
         }, [session, status, loading])
 
         const login = (e) => {
+            setLoading(true)
+            setLoggingIn(true)
             signIn('keycloak', { redirect: false })
         }
 
         return (
             <>
-                {
-                    loading
-                        ? <Loading />
-                        : status === 'unauthenticated'
-                            ? <>
-                                <br />
-                                <Button onClick={login}>
-                                    Login
-                                </Button>
-                            </>
+                {loading
+                    ? <Loading />
+                    : status === 'unauthenticated'
+                        ? <>
+                            <br />
+                            <Button onClick={login}>
+                                Login
+                            </Button>
+                        </>
+                        : (status === 'authenticated' && userRole !== undefined && !userRole)
+                            ?
+                            <AccessDenied />
                             :
-                            (status === 'authenticated' && userRole !== undefined && !userRole)
-                                ?
-                                <AccessDenied />
-                                :
-                                <Page {...(props
-                                    //  as PageProps
-                                )} />
+                            <Page {...(props
+                                //  as PageProps
+                            )} />
                 }
             </>
         )

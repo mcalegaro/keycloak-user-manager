@@ -4,19 +4,24 @@ import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Col, Form, ListGroup, ListGroupItem, Row } from "react-bootstrap";
 import Layout from "../../components/layout/layout";
 import Loading from "../../components/loading/loading";
-import logger from '../../server/logger/logger';
+// import logger from '../../server/logger/logger';
 
 const ListPage = () => {
 
-    const [userName, setUserName] = useState('');
+    const [queryValue, setQueryValue] = useState('');
     const [users, setUsers] = useState([]);
     const { status, data: session } = useSession();
     const [error, setError] = useState(null);
     const [isFetching, setFetching] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const [query, setQuery] = useState('')
+
+    const handleSelect = (e) => {
+        setQuery(e.target.value)
+    }
 
     const handleChange = (ev) => {
-        setUserName(ev.target.value);
+        setQueryValue(ev.target.value);
         setError(null);
     };
 
@@ -33,7 +38,7 @@ const ListPage = () => {
     }, [status, session]);
 
     const doFetch = () => {
-        fetch('/api/users?username=' + userName, {
+        fetch('/api/users?' + query + '=' + queryValue, {
             method: 'GET',
             headers: { Authorization: "Bearer " + session.token['accessToken'] }
         })
@@ -98,10 +103,22 @@ const ListPage = () => {
                 <h4>List Users</h4>
                 <Form onSubmit={handleSubmit}>
                     <Form.Group as={Row} className="mb-3" controlId="formUser" >
-                        <Form.Label column sm={2}><span className="text-nowrap">User name</span></Form.Label>
+                        {/* <Form.Label column sm={2}><span className="text-nowrap">User name</span></Form.Label> */}
+                        <Col sm={4}>
+                            <Form.Select value={query} onChange={handleSelect} required autoFocus>
+                                <option value=""></option>
+                                <option value="username">username</option>
+                                <option value="email">email</option>
+                                <option value="firstName">firstName</option>
+                                <option value="lastName">lastName</option>
+                                <option value="search">search (username, first or last name, or email)</option>
+                            </Form.Select>
+                        </Col>
+                        {/* </Form.Group>
+                    <Form.Group as={Row} className="mb-3" controlId="formUser" > */}
                         {status === 'authenticated' ? <>
                             <Col sm={4}>
-                                <Form.Control autoFocus type="text" placeholder="User name" value={userName}
+                                <Form.Control type="text" placeholder={query} value={queryValue}
                                     onChange={handleChange} required minLength={4} />
                             </Col>
                             <Col sm={2}>

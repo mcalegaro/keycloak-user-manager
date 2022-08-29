@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import KeycloakProvider from 'next-auth/providers/keycloak'
 import { kcCfg, kcRoles } from '../../../components/keycloak.config'
-import logger from "../../../server/logger/logger"
+// import logger from "../../../server/logger/logger"
 import jwt from 'jsonwebtoken'
 import { signOut } from "next-auth/react"
 import { verifyAccessToken } from "../../../oldmiddleware"
@@ -23,7 +23,7 @@ export const authOptions: NextAuthOptions = {
         async jwt({ token, account }) {
             // Persist the OAuth access_token to the token right after signin
             if (account) {
-                logger.info('reading account.')
+                console.info('reading account.')
                 token.accessToken = account.access_token
                 token.refreshToken = account.refresh_token
                 const parsed = jwt.decode(token.accessToken, { complete: true });
@@ -34,7 +34,7 @@ export const authOptions: NextAuthOptions = {
             return token
         },
         async session({ session, token, user }) {
-            logger.info('validating session.')
+            console.info('validating session.')
 
             try {
                 session.token = token;
@@ -42,7 +42,7 @@ export const authOptions: NextAuthOptions = {
                 const info = await verifyAccessToken(bearerToken)
                 // jwt.verify(token.accessToken, await getKey(token.parsed['header'].kid), { algorithms: [token.parsed['header'].alg] })
             } catch (err) {
-                logger.error(JSON.stringify(err))
+                console.error(JSON.stringify(err))
                 session.expired = true
             }
             return session

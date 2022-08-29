@@ -3,7 +3,7 @@
 import { NextRequestWithAuth, withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import { kcCfg, kcRoles } from "./components/keycloak.config";
-import logger from "./server/logger/logger";
+// import logger from "./server/logger/logger";
 // import exp from 'jwt-check-expiration';
 
 // // `withAuth` augments your `Request` with the user's token.
@@ -77,6 +77,21 @@ function deny(method, pathname, url) {
     return NextResponse.rewrite(redir)
 }
 
+export async function verifyAccessToken2(bearerToken: string) {
+    info('verifying access token...');
+    const res = await fetch(`${kcCfg.url}/realms/${kcCfg.realm}/protocol/openid-connect/userinfo`, {
+        headers: {
+            Authorization: 'Bearer ' + bearerToken
+        }
+    })
+    if (res.status !== 200) {
+        throw await res.json()
+    } else {
+        info('acessToken ok');
+        return await res.json()
+    }
+}
+
 export async function verifyAccessToken(bearerToken: string) {
     info('verifying access token...');
     const res = await fetch(`${kcCfg.url}/realms/${kcCfg.realm}/protocol/openid-connect/userinfo`, {
@@ -100,6 +115,6 @@ function info(msg) {
     //         "hostname": "middleware",
     //         "msg": JSON.stringify({ from: 'mw', msg: msg })
     //     })) //json like pino
-    logger.info(msg);
+    console.info(msg);
 }
 

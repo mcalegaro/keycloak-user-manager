@@ -1,6 +1,8 @@
 import { debug } from "console";
 import { isJwtExpired } from 'jwt-check-expiration';
 import { kcCfg } from "../../components/keycloak.config";
+// import logger from "../logger/logger";
+import jwt from 'jsonwebtoken';
 
 const keycloakConfidential = {
     clientId: process.env.KC_CLIENT_ID,
@@ -11,11 +13,37 @@ export default class TokenService {
     private static instance: string = null;
     public static async token(): Promise<string> {
         if (!this.instance || isJwtExpired(TokenService.instance)) {
-            debug('[DEBUG] AccessToken renewed.');
+            console.debug('AccessToken renewed.');
             TokenService.instance = await this.getAccessToken();
         }
         return TokenService.instance;
     }
+
+    public static async authorize(bearerToken: string, roleToAllow) {
+        console.debug('verifying access token...');
+        const res = await fetch(`${kcCfg.url}/realms/${kcCfg.realm}/protocol/openid-connect/userinfo`, {
+            headers: {
+                Authorization: bearerToken
+            }
+        })
+
+        if (res.status !== 200) {
+            console.error(res.status)
+            return false;
+        } else {
+            const parsed = this.parseJwt(bearerToken)
+            if (!parsed.resource_access[kcCfg.clientId].roles.includes(roleToAllow)) {
+                return false;
+            }
+            console.debug('acessToken ok');
+            return true;
+        }
+    }
+
+    private static parseJwt(token) {
+        return jwt.decode(token.replace('Bearer ', ''))
+    };
+
     private static async getAccessToken(): Promise<string> {
         const details = {
             client_id: keycloakConfidential.clientId,

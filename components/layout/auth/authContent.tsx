@@ -1,6 +1,6 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import logger from "../../../server/logger/logger";
+// import logger from "../../../server/logger/logger";
 import { kcCfg, kcRoles } from "../../keycloak.config";
 import withAuth from "./withAuth";
 

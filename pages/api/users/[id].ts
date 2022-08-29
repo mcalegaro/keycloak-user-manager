@@ -1,21 +1,31 @@
-import nextConnect from "next-connect";
-import apiWithAuth, { authorize } from "../../../components/apiWithAuth";
+// import nextConnect from "next-connect";
+// import apiWithAuth, { authorize, authorize2 } from "../../../components/apiWithAuth";
+import { NextApiRequest } from "next";
 import { kcCfg, kcRoles } from "../../../components/keycloak.config";
-import logger from "../../../server/logger/logger";
+// import logger from "../../../server/logger/logger";
 import TokenService from "../../../server/token/tokenService";
+
+// import { unstable_getServerSession } from "next-auth/next"
+// import { authOptions } from "../auth/[...nextauth]"
 
 // const handlerUserApi = nextConnect()
 // handlerUserApi.use(apiWithAuth)
 // handlerUserApi.get(apiWithAuth, async (req, res) => userApi(req, res))
 // export default handlerUserApi
 
-const userApi = async (req, res) => {
-    await authorize(req, res, null, kcRoles.adminRole);
-    if (res.statusCode !== 200) {
-        return;
+const userApi = async (req: NextApiRequest, res) => {
+
+    const { query, method, headers } = req;
+
+    // const session = await unstable_getServerSession(req, res, authOptions)
+
+    const valid = await TokenService.authorize(headers['authorization'], kcRoles.adminRole);
+    if (!valid) {
+        console.error(`${method} - ${query}`);
+        res.status(401).json('Access denied.')
+        return
     }
-    
-    const { query, method } = req;
+
     const accessToken = await TokenService.token();
 
     switch (method) {
@@ -23,8 +33,8 @@ const userApi = async (req, res) => {
             await updateUser(req, res, accessToken);
             break;
         default:
-            logger.debug(`${method} - ${query}`);
-            res.status(404).json({})
+            console.debug(`${method} - ${query}`);
+            res.status(404).json('Not found.')
             break;
     }
 }
@@ -35,8 +45,6 @@ async function updateUser(req, res, accessToken) {
     const { query: { id }, method, body } = req;
     const strBody = JSON.stringify(body)
     const uri = kcCfg.url + '/admin/realms/' + kcCfg.realm + '/users/' + id;
-    logger.info(`uri ${uri}`)
-    logger.info(`at ${accessToken}`)
     const data = await fetch(uri,
         {
             method: method,
@@ -49,7 +57,7 @@ async function updateUser(req, res, accessToken) {
         .then((data) => {
             res.status(200).json(data);
         }).catch((e) => {
-            logger.error(e);
+            console.error(e);
             res.status(500).json(e.message)
         });
 }
