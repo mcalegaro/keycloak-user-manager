@@ -1,4 +1,4 @@
-import { useSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Col, Form, ListGroup, ListGroupItem, Row } from "react-bootstrap";
@@ -6,7 +6,7 @@ import Layout from "../../components/layout/layout";
 import Loading from "../../components/loading/loading";
 // import logger from '../../server/logger/logger';
 
-const ListPage = () => {
+const UsersPage = () => {
 
     const [queryValue, setQueryValue] = useState('');
     const [users, setUsers] = useState([]);
@@ -30,29 +30,46 @@ const ListPage = () => {
         setUsers([]);
         setSubmitted(true);
         setFetching(true)
-        doFetch()
+        fetchUsers(setUsers, setError)
     }
 
     useEffect(() => {
 
     }, [status, session]);
 
-    const doFetch = () => {
+    const fetchUsers = (cb, cbErr) => {
         fetch('/api/users?' + query + '=' + queryValue, {
             method: 'GET',
             headers: { Authorization: "Bearer " + session.token['accessToken'] }
         })
-            .then(async (res) => {
-                if (res.status === 200) return res.json()
-                else throw await res.json().then((data) => { return data })
-            })
-            .then((data) => {
-                setUsers(data);
+            .then(async (d) => {
                 setFetching(false);
+                if (d.status === 200) {
+                    d.json().then(async (us) => {
+                        for (const u of us) {
+                            const groups = await fetch('/api/users/' + u.id + '/groups', { headers: { Authorization: 'Bearer ' + session.token['accessToken'] } })
+                                .then(async (d) => {
+                                    if (d.status === 200) {
+                                        return await d.json().then(gs => gs)
+                                    } else {
+                                        return []
+                                    }
+                                })
+                            u.groups = groups;
+                        }
+                        cb(us)
+                    })
+                } else {
+                    d.json().then(body => {
+                        console.error(body)
+                        cbErr(body)
+                    })
+                }
             }).catch((error) => {
-                setError(error);
                 setFetching(false);
-                setUsers(null);
+                console.error('error:', JSON.stringify(error))
+                cbErr(error);
+                cb(null);
             })
     }
 
@@ -65,7 +82,7 @@ const ListPage = () => {
         </>
 
         if (error) return <>
-            <Alert variant='danger'>Error: {error.message}</Alert>
+            <Alert variant='danger'>Error: {JSON.stringify(error)}</Alert>
         </>
 
         if (submitted && users.length === 0) return <>
@@ -86,7 +103,10 @@ const ListPage = () => {
                                 {u.username.toUpperCase()}
                             </Badge>
                             &nbsp;
-                            {JSON.stringify(u, null, '\t')}
+                            {/* {JSON.stringify(u, null, ' ')} */}
+                            Id: {u.id}
+                            <br />
+                            Groups: {JSON.stringify(u.groups.map((g, i) => g.path), null, ' ')}
                         </ListGroupItem>
                     )
                 }
@@ -104,7 +124,7 @@ const ListPage = () => {
                 <Form onSubmit={handleSubmit}>
                     <Form.Group as={Row} className="mb-3" controlId="formUser" >
                         {/* <Form.Label column sm={2}><span className="text-nowrap">User name</span></Form.Label> */}
-                        <Col sm={4}>
+                        <Col sm={5}>
                             <Form.Select value={query} onChange={handleSelect} required autoFocus>
                                 <option value=""></option>
                                 <option value="username">username</option>
@@ -117,11 +137,11 @@ const ListPage = () => {
                         {/* </Form.Group>
                     <Form.Group as={Row} className="mb-3" controlId="formUser" > */}
                         {status === 'authenticated' ? <>
-                            <Col sm={4}>
+                            <Col sm={5}>
                                 <Form.Control type="text" placeholder={query} value={queryValue}
                                     onChange={handleChange} required minLength={4} />
                             </Col>
-                            <Col sm={2}>
+                            <Col sm={2} style={{ textAlign: 'right' }}>
                                 <Button type='submit'>OK</Button>
                             </Col>
                         </> : <Loading />
@@ -137,4 +157,4 @@ const ListPage = () => {
 
 }
 
-export default ListPage
+export default UsersPage

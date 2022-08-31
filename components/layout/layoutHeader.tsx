@@ -8,8 +8,9 @@ import Loading from '../loading/loading';
 import { logout } from './auth/withAuth';
 import { siteTitle } from "./layout";
 
-const SELECT_LIST = { key: "list", value: "List" }
-const SELECT_UPDATE = { key: "update", value: "Update" }
+const SELECT_USERS = { key: "users", value: "List Users" }
+const SELECT_GROUPS = { key: "groups", value: "Groups" }
+const SELECT_UPDATE = { key: "updateUsers", value: "Update Users" }
 const SELECT_LOGOUT = { key: "logout", value: "Logout" }
 
 export default function LayoutHeader(props) {
@@ -55,8 +56,11 @@ export default function LayoutHeader(props) {
             expand="sm" onSelect={
                 async (selectedKey) => {
                     switch (selectedKey) {
-                        case SELECT_LIST.key:
+                        case SELECT_USERS.key:
                             Router.push('/users')
+                            break;
+                        case SELECT_GROUPS.key:
+                            Router.push('/groups')
                             break;
                         case SELECT_UPDATE.key:
                             Router.push('/users/update')
@@ -82,8 +86,11 @@ export default function LayoutHeader(props) {
                                     <Navbar.Collapse id="basic-navbar-nav">
                                         <Nav className="me-auto">
                                             <>
-                                                <Nav.Link eventKey={SELECT_LIST.key}>
-                                                    {SELECT_LIST.value}
+                                                <Nav.Link eventKey={SELECT_USERS.key}>
+                                                    {SELECT_USERS.value}
+                                                </Nav.Link>
+                                                <Nav.Link eventKey={SELECT_GROUPS.key}>
+                                                    {SELECT_GROUPS.value}
                                                 </Nav.Link>
                                                 {adminRole ?
                                                     <Nav.Link eventKey={SELECT_UPDATE.key}>{SELECT_UPDATE.value}</Nav.Link>

@@ -47,7 +47,7 @@ const withAuth =
                     : status === 'unauthenticated'
                         ? <>
                             <br />
-                            <Button onClick={login}>
+                            <Button onClick={login} autoFocus>
                                 Login
                             </Button>
                         </>

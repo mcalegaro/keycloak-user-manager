@@ -1,21 +1,11 @@
 import { NextApiRequest } from 'next';
 import { kcCfg, kcRoles } from '../../components/keycloak.config';
-// import logger from '../../server/logger/logger';
 import TokenService from '../../server/token/tokenService';
+// import logger from '../../server/logger/logger';
 
-// import { unstable_getServerSession } from "next-auth/next"
-// import { authOptions } from "./auth/[...nextauth]"
-
-// const handler = nextConnect()
-// handler.use(apiWithAuth)
-// handler.get(apiWithAuth, async (req, res) => usersApi(req, res))
-// export default handler
-
-const usersApi = async (req: NextApiRequest, res) => {
+const groupsApi = async (req: NextApiRequest, res) => {
 
     const { query, method, headers } = req;
-
-    // const session = await unstable_getServerSession(req, res, authOptions)
 
     const valid = await TokenService.authorize(headers['authorization'], kcRoles.userRole);
     if (!valid) {
@@ -28,7 +18,7 @@ const usersApi = async (req: NextApiRequest, res) => {
 
     switch (method) {
         case 'GET':
-            await listUsers(req, res, accessToken);
+            await listGroups(req, res, accessToken);
             break;
         default:
             console.warn(`${method} - ${query}`);
@@ -38,26 +28,34 @@ const usersApi = async (req: NextApiRequest, res) => {
 
 }
 
-export default usersApi
+export default groupsApi
 
-async function listUsers(req, res, accessToken) {
+async function listGroups(req, res, accessToken) {
 
     const { query, method, } = req;
 
     const data = await fetch(
         kcCfg.url + '/admin/realms/' +
-        kcCfg.realm + '/users?' +
-        Object.keys(query)[0] + '=' + Object.values(query)[0],
+        kcCfg.realm + '/groups'
+        // + '?' + Object.keys(query)[0] + '=' + Object.values(query)[0]
+        ,
         {
             method: method,
             headers: { Authorization: "Bearer " + accessToken }
         })
-        .then((data) => data.json().then(body => {
-            res.status(data.status).json(body)
-        }))
-        .catch((e) => {
+        .then((res) => res.json())
+        .then((data) => {
+            const flat = []
+            data.forEach(g => {
+                flat.push(g);
+                if (!!g.subGroups) {
+                    g.subGroups.forEach(sg => { flat.push(sg) })
+                }
+            });
+            res.status(200).json(flat);
+        }).catch((e) => {
             console.error(e.message);
-            res.status(500).json(e)
+            res.status(500).json(e.message)
         });
 
 }

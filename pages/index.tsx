@@ -31,7 +31,7 @@ const Home = () => {
         <div>
           {
             loading ? <Loading /> : status === 'authenticated' ?
-              <p>
+              <p className='mt-3'>
                 <i>{session.user.name}</i> connected to {kcCfg.url}/realms/{kcCfg.realm}
               </p> : <></>
           }

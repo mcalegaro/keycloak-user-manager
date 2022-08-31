@@ -1,7 +1,7 @@
 import { useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { Badge, Button, ButtonGroup, CloseButton, Col, Container, Form, ListGroup, ListGroupItem, Row, Spinner, Stack, ToggleButton } from 'react-bootstrap';
+import { Button, Col, Container, Form, ListGroup, ListGroupItem, Row, Stack } from 'react-bootstrap';
 import Layout from "../../../components/layout/layout";
 import Loading from '../../../components/loading/loading';
 import MsgToast from '../../../components/toast';
@@ -10,57 +10,64 @@ import MsgToast from '../../../components/toast';
 
 function UpdatePage() {
 
-    const { data: session, status } = useSession();
-    const [adminRole, setAdminRole] = useState();
     const [users, setUsers] = useState([]);
-    const [groups, setGroups] = useState(null);
-    const [newGroups, setNewGroups] = useState(new Map<number, any>());
+    const [keyValue, setKeyValue] = useState('');
+    const [adminRole, setAdminRole] = useState();
+    const { data: session, status } = useSession();
     const [lastUpdate, setLastUpdate] = useState(new Map());
-    const [groupsValid, setGroupsValid] = useState(false);
-    const [usersValid, setUsersValid] = useState(false);
     const [refreshUpdate, setRefreshUpdate] = useState(true);
-    const [groupSelectValue, setGroupSelectValue] = useState('');
-
-    const [radioValue, setRadioValue] = useState('A');
-
-    const deleteOption = 'D';
-    const radios = [
-        { name: '+Add', value: 'A' },
-        { name: '-Delete', value: deleteOption }
-    ];
+    const [errorMessage, setErrorMessage] = useState('');
+    const [showError, setShowError] = useState(false);
+    const [validated, setValidated] = useState(false);
+    const [jsonValid, setJsonValid] = useState(false);
+    const [usersValid, setUsersValid] = useState(false);
 
     const PROCESSING = 'processing';
     const USERS_MIN_LENGTH = 6;
+    let UPDATE_SUGGESTIONS = undefined;
+    try {
+        UPDATE_SUGGESTIONS =
+            JSON.parse(process.env.NEXT_PUBLIC_UPDATE_SUGGESTIONS);
+    } catch (error) {
+        console.warn('Failed on read UPDATE_SUGGESTIONS.')
+    }
+
+    const attrsIgnored = [
+        "LDAP_ENTRY_DN",
+        "LDAP_ID",
+        "createTimestamp",
+        "modifyTimestamp"];
 
     useEffect(() => {
         if (status === 'authenticated' && adminRole === undefined) {
             setAdminRole(session['token']['hasAdminRole']);
-            const fetchGroups = async () => {
-                setGroups(
-                    await fetch('/api/groups', {
-                        method: 'GET', headers: {
-                            Authorization: "Bearer " + session.token['accessToken']
-                        }
-                    }).then(d => d.json()).then(d => d)
-                )
-            }
-            fetchGroups();
         }
-    }, [status, users, lastUpdate, refreshUpdate, groupsValid, usersValid, newGroups])
+    }, [status, users, keyValue, lastUpdate, refreshUpdate, errorMessage, validated, jsonValid, usersValid])
 
-    const handleChangeUsers = (e) => {
-        const us = e.target.value.replaceAll('\n', ',').replaceAll(' ', '').replaceAll(',,', ',').split(',');
+    const handleChangeUsers = (ev) => {
+        const us = ev.target.value.replaceAll('\n', ',').replaceAll(' ', '').replaceAll(',,', ',').split(',');
         setUsers(us)
         setUsersValid(us.findIndex(u => u.length >= USERS_MIN_LENGTH) >= 0);
     };
 
-    const handleSelect = async (e) => {
-        const idx: number = e.target.value
-        if (!!idx) {
-            const g = groups[idx];
-            await setNewGroups((nG) => nG.set(g.id, g));
-            setGroupsValid(newGroups.size > 0);
-            setRefreshUpdate(d => !d)
+    const handleSelect = (ev) => {
+        try {
+            let values = JSON.parse(keyValue);
+            const addVal = JSON.parse(ev.target.value)
+            values[`${Object.keys(addVal)[0]}`] = Object.values(addVal)[0]
+            setKeyValue(JSON.stringify(values))
+        } catch (e) {
+            handleChangeKeyValue(ev);
+        }
+    }
+
+    const handleChangeKeyValue = (ev) => {
+        setKeyValue(ev.target.value);
+        try {
+            JSON.parse(ev.target.value);
+            setJsonValid(true)
+        } catch (e) {
+            setJsonValid(false)
         }
     }
 
@@ -68,10 +75,9 @@ function UpdatePage() {
         setUsers([]);
     }
 
-    const clearNewGroups = (e) => {
-        setNewGroups(new Map())
-        setGroupSelectValue('');
-        setGroupsValid(false);
+    const clearAttributes = (e) => {
+        setKeyValue('')
+        // document.getElementById('keyValInput').textContent = null;
     }
     // //////////////////////////////////////////////
 
@@ -93,23 +99,44 @@ function UpdatePage() {
         });
     }
 
+    const setAttributes = async (user) => {
+        const attributes = user['attributes']
+        const newAttributes: Map<string, any> = new Map();
+        if (attributes !== undefined) {
+            const keys = Object.keys(attributes);
+            await keys
+                .filter(k => !attrsIgnored.includes(k))
+                .forEach(k => {
+                    newAttributes.set(k, attributes[k]);
+                })
+        }
+
+
+        const toAdd = JSON.parse(keyValue)
+        const keys = Object.keys(toAdd);
+        await keys.forEach(k => {
+            newAttributes.set(k, toAdd[k]);
+        })
+
+        // user['attributes'] = Object.fromEntries(newAttributes);
+        const userAndAttrs = { id: user.id, attributes: Object.fromEntries(newAttributes) }
+        return userAndAttrs;
+    }
+
     const notifyUserStatus = async (userName, status) => {
         const user = new Map().set(userName, status);
         await setLastUpdate(data => data.set(userName, status));
         await setRefreshUpdate(d => !d);
     }
 
-    const updateUser = async (uId, gId, option) => {
-        let m = 'PUT';
-        if (option === deleteOption) {
-            m = 'DELETE'
-        }
-        const resp: any = await fetch('/api/users/' + uId + '/groups/' + gId, {
-            method: m, headers: {
+    const updateUser = async (u) => {
+        const resp: any = await fetch('/api/users/' + u.id, {
+            method: 'PUT', headers: {
                 Authorization: "Bearer " + session.token['accessToken']
-            }
+            },
+            body: JSON.stringify(u)
         }).then(async (res) => {
-            if (res.status === 204) return true
+            if (res.status === 200) return res.json()
             else throw await res.json().then((data) => { return data })
         })
             .then((data) => {
@@ -118,41 +145,29 @@ function UpdatePage() {
         return resp;
     }
 
-    const delGroup = (e) => {
-        const idx = e.target.value;
-        const ng = newGroups;
-        ng.delete(idx);
-        setNewGroups(ng);
-        setGroupsValid(newGroups.size > 0);
-        setRefreshUpdate(d => !d);
-    }
-
     //////////////////////////////////////////////////////
-    const fetchUserGroups = async (uId) => {
-        return fetch('/api/users/' + uId + '/groups', { headers: { Authorization: 'Bearer ' + session.token['accessToken'] } })
-            .then(async (d) => {
-                if (d.status === 200) {
-                    return await d.json().then((d) => {
-                        return d;
-                    })
-                } else {
-                    throw { error: d.json() }
-                }
-            }).catch((error) => {
-                console.error('error:', JSON.stringify(error))
-                return error;
-            });
-    }
     const update = async (event) => {
         event.preventDefault();
+
+        // setShowError(false);
+        // event.stopPropagation();
+
+        // const form = event.currentTarget;
+        // if (form.checkValidity() === false) {
+        //     setValidated(true);
+        //     document.querySelector('.form-control:invalid')['focus']();
+        //     return false;
+        // }
 
         if (!usersValid) {
             document.getElementById('users').focus()
             return false;
         }
 
-        if (!groupsValid) {
-            document.getElementById('groupsSelect').focus()
+        try {
+            JSON.parse(keyValue)
+        } catch (e) {
+            document.getElementById('keyValInput').focus()
             return false;
         }
 
@@ -163,13 +178,9 @@ function UpdatePage() {
                 try {
                     const userRead = await readUser(u);
                     if (userRead.length > 0) {
-                        const user = userRead[0];
-                        const userGroups = await fetchUserGroups(user.id);
-                        for (const g of Array.from(newGroups.keys())) {
-                            const updated = await updateUser(user.id, g, radioValue);
-                            // await notifyUserStatus(u, JSON.stringify(updated ? "Success" : "Error"));
-                        }
-                        await notifyUserStatus(u, JSON.stringify((await fetchUserGroups(user.id)).map(g=>g.path),null,' '));
+                        const userUpdate = await setAttributes(userRead[0])
+                        const updated = await updateUser(userUpdate);
+                        await notifyUserStatus(u, JSON.stringify(updated));
                     } else {
                         await notifyUserStatus(u, 'not found.');
                     }
@@ -230,68 +241,31 @@ function UpdatePage() {
                         <Form.Group className="mb-3" >
                             <Form.Group as={Row}>
                                 <Col >
-                                    <Form.Label>Groups</Form.Label>
+                                    <Form.Label>Add Attributes</Form.Label>
                                 </Col>
                                 <Col style={{ textAlign: 'right' }}>
-                                    <Button onClick={clearNewGroups} variant="secondary" size="sm">Clear</Button>
+                                    <Button onClick={clearAttributes} variant="secondary" size="sm">Clear</Button>
                                 </Col>
                             </Form.Group>
-                            <Form.Group className="mb-3" >
-                                <Form.Select onChange={handleSelect} value={groupSelectValue} id="groupsSelect">
+                            <Form.Group className="mb-3">
+                                {/* <Col sm="11"> */}
+                                <Form.Select onChange={handleSelect} >
                                     <option value=""></option>
-                                    {!!groups
-                                        ? groups.map((g, i) => {
-                                            return <option key={i} value={i}>{`${g.id} - ${g.path}`}</option>
+                                    {!!UPDATE_SUGGESTIONS
+                                        ? UPDATE_SUGGESTIONS.map(s => {
+                                            return <option key={Object.keys(s)[0]} value={JSON.stringify(s)}>{Object.keys(s)[0]}</option>
                                         })
-                                        : <></>
+                                        : <option value='{"usuario-espelho":["usuario-espelho-admin","usuario-espelho-padrao"]}'>usuario-espelho</option>
                                     }
                                 </Form.Select>
-                            </Form.Group>
-                            <Form.Group>
-                                <ListGroup >
-                                    <ListGroupItem>
-                                        <b>Selected Groups to </b>
-                                        <ButtonGroup>
-                                            {radios.map((radio, idx) => (
-                                                <ToggleButton
-                                                    key={idx}
-                                                    id={`radio-${idx}`}
-                                                    type="radio"
-                                                    variant={idx % 2 ? 'outline-danger' : 'outline-success'}
-                                                    name="radio"
-                                                    value={radio.value}
-                                                    checked={radioValue === radio.value}
-                                                    onChange={(e) => setRadioValue(e.currentTarget.value)}
-                                                >
-                                                    {radio.name}
-                                                </ToggleButton>
-                                            ))}
-                                        </ButtonGroup>
-                                    </ListGroupItem>
-                                    {
-                                        newGroups.size > 0
-                                            ? Array.from(newGroups.values()).map((g, i) =>
-                                                <ListGroupItem key={i}>
-                                                    <Form.Group as={Row}>
-                                                        <Col>
-                                                            {/* <Badge bg='primary'> */}
-                                                            <pre style={{ margin: '0' }}>
-                                                                <CloseButton onClick={delGroup} value={g.id}></CloseButton>&nbsp;
-                                                                <b>{g.id}</b> - {g.path}
-                                                            </pre>
-                                                            {/* </Badge> */}
-                                                        </Col>
-                                                        <Col>
-                                                        </Col>
-                                                    </Form.Group>
-                                                </ListGroupItem>
-                                            )
-                                            : <></>
-                                    }
-                                </ListGroup>
-                            </Form.Group>
-                            <Form.Group>
-                                {!groupsValid ?
+                                {/* </Col> */}
+                                {/* <Col sm="11"> */}
+                                <Form.Control as="textarea" id="keyValInput"
+                                    placeholder='Add Attributes'
+                                    onChange={handleChangeKeyValue} value={keyValue}
+                                    required rows={5}
+                                />
+                                {!!keyValue && !jsonValid ?
                                     <div style={{
                                         // display: 'block !important',
                                         width: '100%',
@@ -300,10 +274,10 @@ function UpdatePage() {
                                         color: '#dc3545'
                                     }} //className='invalid-feedback'
                                     >
-                                        Please provide a valid group.
+                                        Please provide a valid json.
                                     </div>
                                     : <Form.Control.Feedback type="invalid">
-                                        Please provide a valid group.
+                                        Please provide a valid json.
                                     </Form.Control.Feedback>
                                 }
                                 {/* </Col> */}
@@ -320,7 +294,13 @@ function UpdatePage() {
                                 </Button> */}
                             </div>
                         </Form.Group>
+                        {showError ?
+                            <Form.Group className="mb-3">
+                                <MsgToast title='Error' msg={errorMessage} showFunc={setShowError} />
+                            </Form.Group>
+                            : <></>}
                     </Form>
+
                     <div>
                         <>
                             <h5>Last Update</h5>
@@ -332,7 +312,7 @@ function UpdatePage() {
                                 </>
                                     : Array.from(lastUpdate.keys()).map((k, i) => {
                                         return <ListGroupItem key={k} variant={i % 2 == 1 ? 'dark' : ''}>
-                                            {k} - {lastUpdate.get(k) === PROCESSING ? <Spinner animation='grow' size='sm' /> : lastUpdate.get(k)}
+                                            {k} - {lastUpdate.get(k) === PROCESSING ? <Loading /> : lastUpdate.get(k)}
                                         </ListGroupItem>
                                     })
                                 }
