@@ -2,6 +2,7 @@ import { useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Col, Form, ListGroup, ListGroupItem, Row } from "react-bootstrap";
+import User from '../../components/fragments/user';
 import Layout from "../../components/layout/layout";
 import Loading from "../../components/loading/loading";
 // import logger from '../../server/logger/logger';
@@ -16,6 +17,7 @@ const GroupsPage = () => {
     const [isFetching, setFetching] = useState(true);
     const [submitted, setSubmitted] = useState(false);
     const [groupSelectValue, setGroupSelectValue] = useState('');
+    const [err, setErr] = useState('')
 
     const handleSelect = async (e) => {
         setGroupSelectValue(e.target.value)
@@ -23,11 +25,12 @@ const GroupsPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setUsers([]);
-        setSubmitted(true);
-        setFetching(true);
-        fetchGroup();
-        fetchMembers();
+        await setUsers([]);
+        await setSubmitted(true);
+        await setFetching(true);
+        await setGroup(await fetchGroup());
+        await setUsers(await fetchMembers());
+        await setFetching(false);
     }
 
     useEffect(() => {
@@ -41,48 +44,40 @@ const GroupsPage = () => {
                     }).then(d => d.json()).then(d => {
                         setFetching(false);
                         return d;
-                    })
+                    }).catch(e => setErr(JSON.stringify(e)))
                 )
             }
             fetchGroups();
 
         }
-    }, [status, session]);
+    }, [status, session, err]);
 
-    const fetchGroup = () => {
-        fetch('/api/groups/' + groupSelectValue, {
+    const fetchGroup = async () => {
+        return await fetch('/api/groups/' + groupSelectValue, {
             method: 'GET',
             headers: { Authorization: "Bearer " + session.token['accessToken'] }
+        }).then(async (res) => {
+            if (res.status === 200) return res.json()
+            else throw await res.json().then((data) => { return data })
+        }).then((data) => {
+            return data;
+        }).catch((error) => {
+            return null;
         })
-            .then(async (res) => {
-                if (res.status === 200) return res.json()
-                else throw await res.json().then((data) => { return data })
-            })
-            .then((data) => {
-                setGroup(data);
-                setFetching(false);
-            }).catch((error) => {
-                setFetching(false);
-                setGroup(null);
-            })
     }
 
-    const fetchMembers = () => {
-        fetch('/api/groups/' + groupSelectValue + '/members', {
+    const fetchMembers = async () => {
+        return await fetch('/api/groups/' + groupSelectValue + '/members', {
             method: 'GET',
             headers: { Authorization: "Bearer " + session.token['accessToken'] }
+        }).then(async (res) => {
+            if (res.status === 200) return res.json()
+            else throw await res.json().then((data) => { return data })
+        }).then((data) => {
+            return data;
+        }).catch((error) => {
+            return null;
         })
-            .then(async (res) => {
-                if (res.status === 200) return res.json()
-                else throw await res.json().then((data) => { return data })
-            })
-            .then((data) => {
-                setUsers(data);
-                setFetching(false);
-            }).catch((error) => {
-                setFetching(false);
-                setUsers(null);
-            })
     }
 
     const showGroup = () => {
@@ -130,11 +125,7 @@ const GroupsPage = () => {
                 {
                     users?.map((u, i) =>
                         <ListGroupItem key={i} variant={i % 2 == 1 ? 'dark' : ''}>
-                            <Badge bg="primary" >
-                                {u.username.toUpperCase()}
-                            </Badge>
-                            &nbsp;
-                            Id: {u.id}
+                            {i+1}. <User username={null} user={u} showGroups={false}/>
                         </ListGroupItem>
                     )
                 }

@@ -1,7 +1,8 @@
 import { signIn, useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { Alert, Badge, Button, Col, Form, ListGroup, ListGroupItem, Row } from "react-bootstrap";
+import { Alert, Badge, Button, Col, Form, ListGroup, ListGroupItem, Row, Spinner } from "react-bootstrap";
+import User from '../../components/fragments/user';
 import Layout from "../../components/layout/layout";
 import Loading from "../../components/loading/loading";
 // import logger from '../../server/logger/logger';
@@ -9,12 +10,12 @@ import Loading from "../../components/loading/loading";
 const UsersPage = () => {
 
     const [queryValue, setQueryValue] = useState('');
-    const [users, setUsers] = useState([]);
+    const [users, setUsers] = useState({});
     const { status, data: session } = useSession();
     const [error, setError] = useState(null);
-    const [isFetching, setFetching] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [query, setQuery] = useState('')
+    const [refresh, setRefresh] = useState(false);
 
     const handleSelect = (e) => {
         setQuery(e.target.value)
@@ -27,25 +28,24 @@ const UsersPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setUsers([]);
+        setUsers({ loading: true });
         setSubmitted(true);
-        setFetching(true)
-        fetchUsers(setUsers, setError)
+        fetchUsers();
     }
 
     useEffect(() => {
 
-    }, [status, session]);
+    }, [status, session, users, refresh]);
 
-    const fetchUsers = (cb, cbErr) => {
+    const fetchUsers = () => {
         fetch('/api/users?' + query + '=' + queryValue, {
             method: 'GET',
             headers: { Authorization: "Bearer " + session.token['accessToken'] }
         })
             .then(async (d) => {
-                setFetching(false);
                 if (d.status === 200) {
                     d.json().then(async (us) => {
+                        setUsers({ loading: false, data: us })
                         for (const u of us) {
                             const groups = await fetch('/api/users/' + u.id + '/groups', { headers: { Authorization: 'Bearer ' + session.token['accessToken'] } })
                                 .then(async (d) => {
@@ -56,20 +56,20 @@ const UsersPage = () => {
                                     }
                                 })
                             u.groups = groups;
+                            setRefresh(r => !r)
                         }
-                        cb(us)
                     })
                 } else {
                     d.json().then(body => {
                         console.error(body)
-                        cbErr(body)
+                        setError(body)
+                        setUsers({})
                     })
                 }
             }).catch((error) => {
-                setFetching(false);
                 console.error('error:', JSON.stringify(error))
-                cbErr(error);
-                cb(null);
+                setError(error)
+                setUsers({})
             })
     }
 
@@ -77,7 +77,7 @@ const UsersPage = () => {
 
         if (!submitted) return <></>
 
-        if (isFetching) return <>
+        if (users['loading']) return <>
             <Loading />
         </>
 
@@ -85,7 +85,7 @@ const UsersPage = () => {
             <Alert variant='danger'>Error: {JSON.stringify(error)}</Alert>
         </>
 
-        if (submitted && users.length === 0) return <>
+        if (submitted && users['data']?.length === 0) return <>
             <ListGroup>
                 <ListGroupItem>
                     No results
@@ -95,18 +95,11 @@ const UsersPage = () => {
 
         return <>
             <ListGroup>
-                <ListGroupItem>{users?.length} result{users?.length > 1 ? 's' : ''}</ListGroupItem>
+                <ListGroupItem>{users['data']?.length} result{users['data']?.length > 1 ? 's' : ''}</ListGroupItem>
                 {
-                    users?.map((u, i) =>
+                    users['data']?.map((u, i) =>
                         <ListGroupItem key={i} variant={i % 2 == 1 ? 'dark' : ''}>
-                            <Badge bg="primary" >
-                                {u.username.toUpperCase()}
-                            </Badge>
-                            &nbsp;
-                            {/* {JSON.stringify(u, null, ' ')} */}
-                            Id: {u.id}
-                            <br />
-                            Groups: {JSON.stringify(u.groups.map((g, i) => g.path), null, ' ')}
+                            {i+1}. <User username={null} user={u} showGroups={true}/>
                         </ListGroupItem>
                     )
                 }

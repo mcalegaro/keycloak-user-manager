@@ -43,7 +43,13 @@ async function listGroups(req, res, accessToken) {
             method: method,
             headers: { Authorization: "Bearer " + accessToken }
         })
-        .then((res) => res.json())
+        .then((res) => {
+            if (res.status === 200) {
+                return res.json()
+            } else {
+                throw { status: res.status, statusText: res.statusText }
+            }
+        })
         .then((data) => {
             const flat = []
             data.forEach(g => {
@@ -54,8 +60,8 @@ async function listGroups(req, res, accessToken) {
             });
             res.status(200).json(flat);
         }).catch((e) => {
-            console.error(e.message);
-            res.status(500).json(e.message)
+            console.error(e);
+            res.status(500).json(e)
         });
 
 }

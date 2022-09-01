@@ -1,10 +1,10 @@
 import { useSession } from 'next-auth/react';
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { Badge, Button, ButtonGroup, CloseButton, Col, Container, Form, ListGroup, ListGroupItem, Row, Spinner, Stack, ToggleButton } from 'react-bootstrap';
+import { Badge, Button, ButtonGroup, CloseButton, Col, Form, ListGroup, ListGroupItem, Row, Spinner, ToggleButton } from 'react-bootstrap';
+import User from '../../../components/fragments/user';
 import Layout from "../../../components/layout/layout";
 import Loading from '../../../components/loading/loading';
-import MsgToast from '../../../components/toast';
 // import logger from '../../../server/logger/logger';
 
 
@@ -15,7 +15,7 @@ function UpdatePage() {
     const [users, setUsers] = useState([]);
     const [groups, setGroups] = useState(null);
     const [newGroups, setNewGroups] = useState(new Map<number, any>());
-    const [lastUpdate, setLastUpdate] = useState(new Map());
+    const [lastUpdate, setLastUpdate] = useState({ loading: false, data: new Map<string, any>() });
     const [groupsValid, setGroupsValid] = useState(false);
     const [usersValid, setUsersValid] = useState(false);
     const [refreshUpdate, setRefreshUpdate] = useState(true);
@@ -23,14 +23,17 @@ function UpdatePage() {
 
     const [radioValue, setRadioValue] = useState('A');
 
+    const addOption = 'A';
     const deleteOption = 'D';
+    const viewOption = 'V';
     const radios = [
-        { name: '+Add', value: 'A' },
-        { name: '-Delete', value: deleteOption }
+        { name: '+Add', value: addOption },
+        { name: '-Delete', value: deleteOption },
+        { name: 'View', value: viewOption }
     ];
 
     const PROCESSING = 'processing';
-    const USERS_MIN_LENGTH = 6;
+    const USERS_MIN_LENGTH = 4;
 
     useEffect(() => {
         if (status === 'authenticated' && adminRole === undefined) {
@@ -93,12 +96,6 @@ function UpdatePage() {
         });
     }
 
-    const notifyUserStatus = async (userName, status) => {
-        const user = new Map().set(userName, status);
-        await setLastUpdate(data => data.set(userName, status));
-        await setRefreshUpdate(d => !d);
-    }
-
     const updateUser = async (uId, gId, option) => {
         let m = 'PUT';
         if (option === deleteOption) {
@@ -156,29 +153,48 @@ function UpdatePage() {
             return false;
         }
 
-        setLastUpdate(new Map());
-        users.filter(u => u.length >= USERS_MIN_LENGTH).forEach(async (u) => {
-            await notifyUserStatus(u, PROCESSING);
-            const processUser = async (u) => {
-                try {
-                    const userRead = await readUser(u);
-                    if (userRead.length > 0) {
-                        const user = userRead[0];
-                        const userGroups = await fetchUserGroups(user.id);
+        const luAux = { loading: true, data: new Map<string, any>() };
+        const us = users.filter(u => u.length >= USERS_MIN_LENGTH)
+        for (const u of us) {
+            try {
+                const userRead = await readUser(u);
+                if (userRead.length > 0 && userRead.filter(user => user.username.toUpperCase() === u).length === 1) {
+                    const user = userRead.filter(user => user.username.toUpperCase() === u)[0];
+                    const d: Map<string, any> = luAux['data'];
+                    d.set(u, user);
+                    setLastUpdate(luAux);
+                    if (radioValue !== viewOption) {
                         for (const g of Array.from(newGroups.keys())) {
                             const updated = await updateUser(user.id, g, radioValue);
                             // await notifyUserStatus(u, JSON.stringify(updated ? "Success" : "Error"));
                         }
-                        await notifyUserStatus(u, JSON.stringify((await fetchUserGroups(user.id)).map(g=>g.path),null,' '));
-                    } else {
-                        await notifyUserStatus(u, 'not found.');
                     }
-                } catch (e) {
-                    await (notifyUserStatus(u, JSON.stringify(e.message)))
+                    const l: Map<string, any> = luAux['data'];
+                    const userGroups = await fetchUserGroups(user.id);
+                    user.groups = userGroups;
+                    l.set(u, user);
+                    setLastUpdate(luAux);
+                } else {
+                    const l: Map<string, any> = luAux['data'];
+                    const user = {
+                        username: 'not-found',
+                        groups: []
+                    };
+                    l.set(u, user);
+                    setLastUpdate(luAux);
                 }
+            } catch (e) {
+                const l: Map<string, any> = luAux['data'];
+                const user = {
+                    username: JSON.stringify(e, null, ' '),
+                    groups: []
+                };
+                l.set(u, user);
+                setLastUpdate(luAux);
             }
-            processUser(u);
-        })
+
+        }
+        setLastUpdate(lu => ({ ...lu, loading: false }))
         return false;
     }
 
@@ -204,27 +220,14 @@ function UpdatePage() {
                                     <Button onClick={clearUserNames} variant="secondary" size="sm">Clear</Button>
                                 </Col>
                             </Form.Group>
-                            <Form.Control autoFocus as="textarea" id="users"
-                                placeholder="User names"
-                                value={users}
-                                onChange={handleChangeUsers}
-                                required minLength={USERS_MIN_LENGTH}
-                                rows={4}
+                            <Form.Control autoFocus as="textarea" id="users" placeholder="User names" value={users}
+                                onChange={handleChangeUsers} required minLength={USERS_MIN_LENGTH} rows={4}
                             />
-                            {!!users && !usersValid ?
-                                <div style={{
-                                    // display: 'block !important',
-                                    width: '100%',
-                                    marginTop: '0.25rem',
-                                    fontSize: '.875em',
-                                    color: '#dc3545'
-                                }} //className='invalid-feedback'
-                                >
+                            {!!users && !usersValid
+                                ? <div style={{ width: '100%', marginTop: '0.25rem', fontSize: '.875em', color: '#dc3545' }} >
                                     Please provide a valid user (at least {USERS_MIN_LENGTH} chars).
                                 </div>
-                                : <Form.Control.Feedback type="invalid">
-                                    Please provide a valid json.
-                                </Form.Control.Feedback>
+                                : <></>
                             }
                         </Form.Group>
                         <Form.Group className="mb-3" >
@@ -312,32 +315,26 @@ function UpdatePage() {
                         <Form.Group className="mb-3">
                             <div className="d-grid gap-2">
                                 <Button type='submit' >Update</Button>
-                                {/* <Button variant="primary" size="lg">
-                                    Block level button
-                                </Button>
-                                <Button variant="secondary" size="lg">
-                                    Block level button
-                                </Button> */}
                             </div>
                         </Form.Group>
                     </Form>
                     <div>
-                        <>
-                            <h5>Last Update</h5>
-                            <ListGroup>
-                                {lastUpdate.size === 0 ? <>
-                                    <ListGroupItem>
-                                        No results
+                        <h5>Last Update</h5>
+                        <ListGroup>
+                            {lastUpdate.loading ? <ListGroupItem><Spinner animation='border' size='sm' /></ListGroupItem> : <></>}
+                            {lastUpdate.data.size === 0
+                                ? <ListGroupItem>
+                                    No results
+                                </ListGroupItem>
+                                : Array.from(lastUpdate.data.keys()).map((k, i) => {
+                                    const u = lastUpdate.data.get(k);
+                                    return <ListGroupItem key={k} variant={i % 2 == 1 ? 'dark' : ''}>
+                                        {i + 1}. <User username={k} user={u} showGroups={true} />
                                     </ListGroupItem>
-                                </>
-                                    : Array.from(lastUpdate.keys()).map((k, i) => {
-                                        return <ListGroupItem key={k} variant={i % 2 == 1 ? 'dark' : ''}>
-                                            {k} - {lastUpdate.get(k) === PROCESSING ? <Spinner animation='grow' size='sm' /> : lastUpdate.get(k)}
-                                        </ListGroupItem>
-                                    })
                                 }
-                            </ListGroup>
-                        </>
+                                )
+                            }
+                        </ListGroup>
                     </div>
                 </>
             }

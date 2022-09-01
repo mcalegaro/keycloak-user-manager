@@ -1,4 +1,3 @@
-import { stat } from 'fs';
 import { signOut, useSession } from 'next-auth/react';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
@@ -31,9 +30,13 @@ const Home = () => {
         <div>
           {
             loading ? <Loading /> : status === 'authenticated' ?
-              <p className='mt-3'>
-                <i>{session.user.name}</i> connected to {kcCfg.url}/realms/{kcCfg.realm}
-              </p> : <></>
+              <>
+                <p className='mt-3'>
+                  <i>{session.user.name}, {session.user.email}</i> connected to {kcCfg.url}/realms/{kcCfg.realm}
+                </p>
+
+              </>
+              : <></>
           }
           {/* <p>
             Hello {status == 'authenticated'
