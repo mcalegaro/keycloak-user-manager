@@ -7,7 +7,11 @@ UserManagerApplication:
       defaultLambda: user-manager-app-Default
       apiLambda: user-manager-app-Api
       imageLambda: user-manager-app-Image
+    timeout:
+      defaultLambda: 30
+      apiLambda: 30
+      imageLambda: 30
     removeOldLambdaVersions: true
-    bucketName: user-manager-app
+    bucketName: hvovoq-10qgqp6
     cloudfront:
-      distributionId: E2G9Z802JCMBDR
+      distributionId: E19ZIFH3QGDXD3
