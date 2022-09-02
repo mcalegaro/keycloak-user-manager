@@ -27,9 +27,9 @@ function UpdatePage() {
     const deleteOption = 'D';
     const viewOption = 'V';
     const radios = [
-        { name: '+Add', value: addOption },
-        { name: '-Delete', value: deleteOption },
-        { name: 'View', value: viewOption }
+        { name: 'View', value: viewOption, variant: 'outline-info' },
+        { name: '+Add', value: addOption, variant: 'outline-success' },
+        { name: '-Delete', value: deleteOption, variant: 'outline-danger' }
     ];
 
     const PROCESSING = 'processing';
@@ -260,7 +260,7 @@ function UpdatePage() {
                                                     key={idx}
                                                     id={`radio-${idx}`}
                                                     type="radio"
-                                                    variant={idx % 2 ? 'outline-danger' : 'outline-success'}
+                                                    variant={radio.variant}
                                                     name="radio"
                                                     value={radio.value}
                                                     checked={radioValue === radio.value}
