@@ -32,7 +32,13 @@ export default groupMembersApi
 async function listMembers(req, res, accessToken) {
 
     const { query, method, } = req;
-    const uri = kcCfg.url + '/admin/realms/' + kcCfg.realm + '/groups/' + query['id'] + '/members';
+    let uri = kcCfg.url + '/admin/realms/' + kcCfg.realm + '/groups/' + query['id'] + '/members?'
+        + 'briefRepresentation=true';
+
+    Object.keys(query).forEach((element, i) => {
+        uri = uri + '&' + Object.keys(query)[i] + '=' + Object.values(query)[i];
+    });
+
     const data = await fetch(uri, {
         method: method, headers: { Authorization: "Bearer " + accessToken }
     })
