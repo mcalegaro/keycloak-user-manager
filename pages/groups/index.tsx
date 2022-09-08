@@ -118,10 +118,11 @@ const GroupsPage = () => {
                     </Badge>
                     &nbsp;
                     <pre>
-                        {/* {JSON.stringify(group, null, '  ')} */}
                         Id: {group.id}<br />
                         Path: {group.path}<br />
                         Attributes: {JSON.stringify(group.attributes, null, ' ')}<br />
+                        ClientRoles: {JSON.stringify(group.clientRoles, null, ' ')}<br />
+                        RealmRoles: {JSON.stringify(group.realmRoles, null, ' ')}<br />
                     </pre>
                 </ListGroupItem>
             </ListGroup>
